@@ -94,16 +94,29 @@ class DiskTests: XCTestCase {
     func testAppendStructs() {
         do {
             // Append a single struct to an empty location
-            try Disk.append(messages[0], to: "single-message.json", in: .documents)
-            let retrievedSingleMessage = try Disk.retrieve("single-message.json", from: .documents, as: [Message].self)
-            XCTAssert(Disk.exists("single-message.json", in: .documents))
+            let singleFileName = "single-message.json"
+            let directory = Disk.Directory.documents
+            try Disk.append(messages[0], to: singleFileName, in: directory)
+            let retrievedSingleMessage = try Disk.retrieve(singleFileName, from: directory, as: [Message].self)
+            XCTAssert(Disk.exists(singleFileName, in: directory))
             XCTAssert(retrievedSingleMessage[0] == messages[0])
             
+            try Disk.removeAll(Message.self, from: singleFileName, in: directory, where: { $0 == messages[0] })
+            let retrieveEmptySingle = try Disk.retrieve(singleFileName, from: directory, as: [Message].self)
+            XCTAssert(retrieveEmptySingle == [])
+            
             // Append an array of structs to an empty location
-            try Disk.append(messages, to: "multiple-messages.json", in: .documents)
-            let retrievedMultipleMessages = try Disk.retrieve("multiple-messages.json", from: .documents, as: [Message].self)
-            XCTAssert(Disk.exists("multiple-messages.json", in: .documents))
+            let multipleFileName = "multiple-messages.json"
+            try Disk.append(messages, to: multipleFileName, in: .documents)
+            let retrievedMultipleMessages = try Disk.retrieve(multipleFileName, from: .documents, as: [Message].self)
+            XCTAssert(Disk.exists(multipleFileName, in: .documents))
             XCTAssert(retrievedMultipleMessages == messages)
+            
+            try Disk.removeAll(Message.self, from: multipleFileName, in: directory, where: { $0 == messages[0] })
+            let retrieveRemovedMultiple = try Disk.retrieve(multipleFileName, from: directory, as: [Message].self)
+            var removed = messages
+            removed.removeAll(where: { $0 == messages[0] })
+            XCTAssert(retrieveRemovedMultiple == removed)
             
             // Append a single struct to a single struct
             try Disk.save(messages[0], to: .documents, as: "messages.json")
@@ -111,6 +124,12 @@ class DiskTests: XCTestCase {
             try Disk.append(messages[1], to: "messages.json", in: .documents)
             let retrievedMessages = try Disk.retrieve("messages.json", from: .documents, as: [Message].self)
             XCTAssert(retrievedMessages[0] == messages[0] && retrievedMessages[1] == messages[1])
+            
+            try Disk.save(messages[0], to: .documents, as: "messages.json")
+            try Disk.append(messages[1], to: "messages.json", in: .documents)
+            try Disk.removeAll(Message.self, from: "messages.json", in: .documents, where: { $0 == messages[1] })
+            let retrievedRemovedMessages = try Disk.retrieve("messages.json", from: .documents, as: [Message].self)
+            XCTAssert(retrievedRemovedMessages == [messages[0]])
             
             // Append an array of structs to a single struct
             try Disk.save(messages[5], to: .caches, as: "one-message.json")
@@ -120,6 +139,14 @@ class DiskTests: XCTestCase {
             XCTAssert(retrievedOneMessage[0] == messages[5])
             XCTAssert(retrievedOneMessage.last! == messages.last!)
             
+            try Disk.save(messages[5], to: .caches, as: "one-message.json")
+            try Disk.append(messages, to: "one-message.json", in: .caches)
+            try Disk.removeAll(Message.self, from: "one-message.json", in: .caches, where: { $0 == messages[5] })
+            let removedMessagesAppend = try Disk.retrieve("one-message.json", from: .caches, as: [Message].self)
+            var expectedRemove = messages
+            expectedRemove.removeAll(where: { $0 == messages[5] })
+            XCTAssert(expectedRemove == removedMessagesAppend)
+            
             // Append a single struct to an array of structs
             try Disk.save(messages, to: .documents, as: "many-messages.json")
             try Disk.append(messages[1], to: "many-messages.json", in: .documents)
@@ -128,6 +155,14 @@ class DiskTests: XCTestCase {
             XCTAssert(retrievedManyMessages[0] == messages[0])
             XCTAssert(retrievedManyMessages.last! == messages[1])
             
+            try Disk.save(messages, to: .caches, as: "many-messages.json")
+            try Disk.append(messages[1], to: "many-messages.json", in: .caches)
+            try Disk.removeAll(Message.self, from: "many-messages.json", in: .caches, where: { $0 == messages[1] })
+            let retrievedManyMessagesAppend = try Disk.retrieve("many-messages.json", from: .caches, as: [Message].self)
+            var expectedRemoveAppend = messages
+            expectedRemoveAppend.removeAll(where: { $0 == messages[1] })
+            XCTAssert(expectedRemoveAppend == retrievedManyMessagesAppend)
+            
             let array = [messages[0], messages[1], messages[2]]
             try Disk.save(array, to: .documents, as: "a-few-messages.json")
             XCTAssert(Disk.exists("a-few-messages.json", in: .documents))
@@ -135,12 +170,25 @@ class DiskTests: XCTestCase {
             let retrievedFewMessages = try Disk.retrieve("a-few-messages.json", from: .documents, as: [Message].self)
             XCTAssert(retrievedFewMessages[0] == array[0] && retrievedFewMessages[1] == array[1] && retrievedFewMessages[2] == array[2] && retrievedFewMessages[3] == messages[3])
             
+            let arrayAgain = [messages[0], messages[1], messages[2]]
+            try Disk.save(arrayAgain, to: .documents, as: "a-few-messages.json")
+            try Disk.append(messages[3], to: "a-few-messages.json", in: .documents)
+            try Disk.removeAll(Message.self, from: "a-few-messages.json", in: .documents, where: { $0 == messages[0] })
+            let retrievedFewMessagesRemove = try Disk.retrieve("a-few-messages.json", from: .documents, as: [Message].self)
+            let expectedArrayRemove = [messages[1], messages[2], messages[3]]
+            XCTAssert(retrievedFewMessagesRemove == expectedArrayRemove)
+            
             // Append an array of structs to an array of structs
             try Disk.save(messages, to: .documents, as: "array-of-structs.json")
             try Disk.append(messages, to: "array-of-structs.json", in: .documents)
             let retrievedArrayOfStructs = try Disk.retrieve("array-of-structs.json", from: .documents, as: [Message].self)
             XCTAssert(retrievedArrayOfStructs.count == (messages.count * 2))
             XCTAssert(retrievedArrayOfStructs[0] == messages[0] && retrievedArrayOfStructs.last! == messages.last!)
+            
+            try Disk.removeAll(Message.self, from: "array-of-structs.json", in: .documents, where: { _ in true })
+            let retrievedArrayOfStructsRemove = try Disk.retrieve("array-of-structs.json", from: .documents, as: [Message].self)
+            XCTAssert(retrievedArrayOfStructsRemove.isEmpty)
+            
         } catch {
             fatalError(convertErrorToString(error))
         }

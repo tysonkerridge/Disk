@@ -71,7 +71,7 @@ public extension Disk {
                         old.append(value)
                         new = old
                     } else {
-                        throw createDeserializationErrorForAppendingStructToInvalidType(url: url, type: value)
+                        throw createDeserializationErrorForAppendingStructToInvalidType(url: url, type: T.self)
                     }
                     let newData = try encoder.encode(new)
                     try newData.write(to: url, options: .atomic)
@@ -83,6 +83,51 @@ public extension Disk {
             throw error
         }
     }
+    
+    /// Remove Codable struct JSON data from file's data
+    ///
+    /// - Parameters:
+    ///   - type: the type of struct to edit
+    ///   - path: file location to store the data (i.e. "Folder/file.json")
+    ///   - directory: user directory to store the file in
+    ///   - decoder: custom JSONDecoder to decode existing values
+    ///   - encoder: custom JSONEncoder to encode new value
+    ///   - shouldBeRemoved: returns whether or not the given value should be removed.
+    /// - Throws: Error if there were any issues with encoding/decoding or writing the encoded struct to disk
+    static func removeAll<T: Codable>(_ type: T.Type, from path: String, in directory: Directory, decoder: JSONDecoder = JSONDecoder(), encoder: JSONEncoder = JSONEncoder(), where shouldBeRemoved: (T) -> Bool) throws {
+        if path.hasSuffix("/") {
+            throw createInvalidFileNameForStructsError()
+        }
+        do {
+            if let url = try? getExistingFileURL(for: path, in: directory) {
+                let oldData = try Data(contentsOf: url)
+                if !(oldData.count > 0) {
+                    return // nothing to do
+                } else {
+                    let new: [T]
+                    if let old = try? decoder.decode(T.self, from: oldData) {
+                        if shouldBeRemoved(old) {
+                            new = []
+                        } else {
+                            return // nothing to do
+                        }
+                    } else if var old = try? decoder.decode([T].self, from: oldData) {
+                        old.removeAll(where: shouldBeRemoved)
+                        new = old
+                    } else {
+                        throw createDeserializationErrorForRemovingStructFromInvalidType(url: url, type: type)
+                    }
+                    let newData = try encoder.encode(new)
+                    try newData.write(to: url, options: .atomic)
+                }
+            } else {
+                return // nothing to do
+            }
+        } catch {
+            throw error
+        }
+    }
+    
     
     /// Append Codable struct array JSON data to a file's data
     ///
@@ -110,7 +155,7 @@ public extension Disk {
                         old.append(contentsOf: value)
                         new = old
                     } else {
-                        throw createDeserializationErrorForAppendingStructToInvalidType(url: url, type: value)
+                        throw createDeserializationErrorForAppendingStructToInvalidType(url: url, type: T.self)
                     }
                     let newData = try encoder.encode(new)
                     try newData.write(to: url, options: .atomic)
@@ -149,12 +194,21 @@ public extension Disk {
 
 extension Disk {
     /// Helper method to create deserialization error for append(:path:directory:) functions
-    fileprivate static func createDeserializationErrorForAppendingStructToInvalidType<T>(url: URL, type: T) -> Error {
+    fileprivate static func createDeserializationErrorForAppendingStructToInvalidType<T>(url: URL, type: T.Type) -> Error {
         return Disk.createError(
             .deserialization,
             description: "Could not deserialize the existing data at \(url.path) to a valid type to append to.",
-            failureReason: "JSONDecoder could not decode type \(T.self) from the data existing at the file location.",
+            failureReason: "JSONDecoder could not decode type \(type) from the data existing at the file location.",
             recoverySuggestion: "Ensure that you only append data structure(s) with the same type as the data existing at the file location.")
+    }
+    
+    /// Helper method to create deserialization error for remove(:from:in:where:) functions
+    fileprivate static func createDeserializationErrorForRemovingStructFromInvalidType<T>(url: URL, type: T.Type) -> Error {
+        return Disk.createError(
+            .deserialization,
+            description: "Could not deserialize the existing data at \(url.path) to a valid type to remove from.",
+            failureReason: "JSONDecoder could not decode type \(type) from the data existing at the file location.",
+            recoverySuggestion: "Ensure that you only remove data structure(s) with the same type as the data existing at the file location.")
     }
     
     /// Helper method to create error for when trying to saving Codable structs as multiple files to a folder
