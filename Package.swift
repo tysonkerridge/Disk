@@ -1,9 +1,9 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.8
 import PackageDescription
 
 let package = Package(
     name: "Disk",
-    platforms: [.iOS(.v9)],
+    platforms: [.iOS(.v12)],
     products: [
         .library(name: "Disk", targets: ["Disk"])
     ],
@@ -11,7 +11,10 @@ let package = Package(
         .target(
             name: "Disk",
             path: "Sources",
-            exclude: ["DiskExample"]
+            exclude:  ["DiskExample"],
+            resources: [
+                .copy("PrivacyInfo.xcprivacy"),
+            ]
         ),
         .testTarget(
             name: "DiskTests",
