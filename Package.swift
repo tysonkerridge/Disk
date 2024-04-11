@@ -11,7 +11,6 @@ let package = Package(
         .target(
             name: "Disk",
             path: "Sources",
-            exclude:  ["DiskExample"],
             resources: [
                 .copy("PrivacyInfo.xcprivacy"),
             ]
@@ -19,8 +18,7 @@ let package = Package(
         .testTarget(
             name: "DiskTests",
             dependencies: ["Disk"],
-            path: "Tests",
-            exclude:  ["DiskExample"]
+            path: "Tests"
         )
     ]
 )
