@@ -51,6 +51,7 @@ public extension Disk {
         }
     }
     
+    #if os(iOS) || os(macOS)
     /// Volume’s available capacity in bytes for storing important resources.
     ///
     /// Indicates the amount of space that can be made available  for things the user has explicitly requested in the app's UI (i.e. downloading a video or new level for a game.)
@@ -80,4 +81,5 @@ public extension Disk {
             }
         }
     }
+    #endif
 }
