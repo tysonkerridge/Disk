@@ -221,3 +221,18 @@ extension Disk {
     }
 }
 
+extension Disk {
+    
+    public static func saveOrRemove<T: Codable>(
+        item: T?,
+        path: String,
+        directory: Disk.Directory
+    ) throws {
+        if let item {
+            try Disk.save(item, to: directory, as: path)
+        } else {
+            try Disk.remove(path, from: directory)
+        }
+    }
+    
+}
