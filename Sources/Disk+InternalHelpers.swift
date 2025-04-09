@@ -100,17 +100,21 @@ extension Disk {
     
     /// Find an existing file's URL or throw an error if it doesn't exist
     static func getExistingFileURL(for path: String?, in directory: Directory) throws -> URL {
+        let (url, exists) = try getExistingFileURLInfo(for: path, in: directory)
+        guard exists else {
+            throw createNotFoundError(url: url)
+        }
+        return url
+    }
+    
+    /// Find a file's URL and whether it exists
+    static func getExistingFileURLInfo(for path: String?, in directory: Directory) throws -> (url: URL, exists: Bool) {
         do {
             let url = try createURL(for: path, in: directory)
             if FileManager.default.fileExists(atPath: url.path) {
-                return url
+                return (url, true)
             }
-            throw createError(
-                .noFileFound,
-                description: "Could not find an existing file or folder at \(url.path).",
-                failureReason: "There is no existing file or folder at \(url.path)",
-                recoverySuggestion: "Check if a file or folder exists before trying to commit an operation on it."
-            )
+            return (url, false)
         } catch {
             throw error
         }
@@ -199,5 +203,15 @@ extension Disk {
         let filePath = url.lastPathComponent
         let fileName = filePath.replacingOccurrences(of: fileExtension, with: "")
         return Int(String(fileName.filter { "0123456789".contains($0) }))
+    }
+    
+    /// Helper method to create deserialization error for retrieve and existience functions
+    static func createNotFoundError(url: URL) -> Error {
+        createError(
+            .noFileFound,
+            description: "Could not find an existing file or folder at \(url.path).",
+            failureReason: "There is no existing file or folder at \(url.path)",
+            recoverySuggestion: "Check if a file or folder exists before trying to commit an operation on it."
+        )
     }
 }

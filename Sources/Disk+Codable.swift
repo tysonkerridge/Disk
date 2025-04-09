@@ -178,14 +178,46 @@ public extension Disk {
     /// - Returns: decoded structs of data
     /// - Throws: Error if there were any issues retrieving the data or decoding it to the specified type
     static func retrieve<T: Decodable>(_ path: String, from directory: Directory, as type: T.Type, decoder: JSONDecoder = JSONDecoder()) throws -> T {
+        let info = try _retrieveIfExists(path, from: directory, as: type, decoder: decoder)
+        guard let decoded = info.decoded else {
+            throw createNotFoundError(url: info.url)
+        }
+        return decoded
+    }
+    
+    /// Retrieve and decode a struct from a file on disk if it exists
+    ///
+    /// - Parameters:
+    ///   - path: path of the file holding desired data
+    ///   - directory: user directory to retrieve the file from
+    ///   - type: struct type (i.e. Message.self or [Message].self)
+    ///   - decoder: custom JSONDecoder to decode existing values
+    /// - Returns: decoded structs of data
+    /// - Throws: Error if there were any issues retrieving the data or decoding it to the specified type, except for if the file doesn't exists
+    static func retrieveIfExists<T: Decodable>(_ path: String, from directory: Directory, as type: T.Type, decoder: JSONDecoder = JSONDecoder()) throws -> (decoded: T?, exists: Bool) {
+        let info = try _retrieveIfExists(path, from: directory, as: type, decoder: decoder)
+        return (info.decoded, info.exists)
+    }
+    
+    /// Retrieve and decode a struct from a file on disk if it exists
+    ///
+    /// - Parameters:
+    ///   - path: path of the file holding desired data
+    ///   - directory: user directory to retrieve the file from
+    ///   - type: struct type (i.e. Message.self or [Message].self)
+    ///   - decoder: custom JSONDecoder to decode existing values
+    /// - Returns: decoded structs of data
+    /// - Throws: Error if there were any issues retrieving the data, or decoding it to the specified type, except for if the file doesn't exists
+    private static func _retrieveIfExists<T: Decodable>(_ path: String, from directory: Directory, as type: T.Type, decoder: JSONDecoder = JSONDecoder()) throws -> (decoded: T?, url: URL, exists: Bool) {
         if path.hasSuffix("/") {
             throw createInvalidFileNameForStructsError()
         }
         do {
-            let url = try getExistingFileURL(for: path, in: directory)
+            let (url, exists) = try getExistingFileURLInfo(for: path, in: directory)
+            guard exists else { return (nil, url, exists) }
             let data = try Data(contentsOf: url)
             let value = try decoder.decode(type, from: data)
-            return value
+            return (value, url, exists)
         } catch {
             throw error
         }
